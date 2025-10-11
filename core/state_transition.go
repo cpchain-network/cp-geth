@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 )
@@ -678,7 +679,13 @@ func (st *stateTransition) innerExecute() (*ExecutionResult, error) {
 			if overflow {
 				return nil, fmt.Errorf("optimism gas cost overflows U256: %d", gasCost)
 			}
-			st.state.AddBalance(params.OptimismBaseFeeRecipient, amtU256, tracing.BalanceIncreaseRewardTransactionFee)
+			if !st.evm.ChainConfig().IsCpFirst(st.evm.Context.BlockNumber) {
+				log.Debug("Add base fee to base fee recipient", "baseFeeRecipient", params.OptimismBaseFeeRecipient, "amtU256", amtU256)
+				st.state.AddBalance(params.OptimismBaseFeeRecipient, amtU256, tracing.BalanceIncreaseRewardTransactionFee)
+			} else {
+				log.Debug("Add base fee to coinbase", "coinbase", st.evm.Context.Coinbase, "amtU256", amtU256)
+				st.state.AddBalance(st.evm.Context.Coinbase, amtU256, tracing.BalanceIncreaseRewardTransactionFee)
+			}
 			if l1Cost := st.evm.Context.L1CostFunc(st.msg.RollupCostData, st.evm.Context.Time); l1Cost != nil {
 				amtU256, overflow = uint256.FromBig(l1Cost)
 				if overflow {
