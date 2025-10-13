@@ -123,6 +123,7 @@ var (
 // BlockChain defines the minimal set of methods needed to back a tx pool with
 // a chain. Exists to allow mocking the live chain out of tests.
 type BlockChain interface {
+	core.ChainContext
 	// Config retrieves the chain's fork configuration.
 	Config() *params.ChainConfig
 
@@ -158,6 +159,8 @@ type Config struct {
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
 	EffectiveGasCeil uint64 // OP-Stack: if non-zero, a gas ceiling to enforce independent of the header's gaslimit value
+
+	AccessFilterAddr common.Address
 }
 
 // DefaultConfig contains the default configurations for the transaction pool.
@@ -267,6 +270,7 @@ type LegacyPool struct {
 	ingressFilters []txpool.IngressFilter // Filters to apply to incoming transactions
 	filterCtx      context.Context        // Filters may use this context with external resources
 	filterCancel   context.CancelFunc     // Cancel function for the filter context
+	accessFilter   *txpool.AccessFilter   // address filter contract wrapper
 }
 
 type txpoolResetRequest struct {
@@ -295,6 +299,7 @@ func New(config Config, chain BlockChain) *LegacyPool {
 		reorgDoneCh:     make(chan chan struct{}),
 		reorgShutdownCh: make(chan struct{}),
 		initDoneCh:      make(chan struct{}),
+		accessFilter:    txpool.NewAccessFilter(config.AccessFilterAddr),
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -1020,6 +1025,16 @@ func (pool *LegacyPool) Add(txs []*types.Transaction, sync bool) []error {
 			knownTxMeter.Mark(1)
 			continue
 		}
+
+		// If the transaction from to is filter, pre-set the error slot
+		if pool.accessFilter != nil {
+			if pool.accessFilter.IsFiltered(tx.From()) || pool.accessFilter.IsFiltered(*tx.To()) {
+				errs[i] = core.ErrTxFilteredOut
+				invalidTxMeter.Mark(1)
+				continue
+			}
+		}
+
 		// Exclude transactions with basic errors, e.g invalid signatures and
 		// insufficient intrinsic gas as soon as possible and cache senders
 		// in transactions before obtaining lock
@@ -1504,6 +1519,16 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
+
+	err = pool.accessFilter.RefreshCacheIfExpire(&txpool.CallContext{
+		Statedb:      statedb,
+		Header:       newHead,
+		ChainContext: pool.chain,
+		ChainConfig:  pool.chainconfig,
+	})
+	if err != nil {
+		log.Error("failed to RefreshCacheIfExpire", "err", err)
+	}
 
 	// OP-Stack addition
 	pool.resetRollupCostFn(newHead.Time, statedb)
