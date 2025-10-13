@@ -159,8 +159,6 @@ type Config struct {
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
 	EffectiveGasCeil uint64 // OP-Stack: if non-zero, a gas ceiling to enforce independent of the header's gaslimit value
-
-	AccessFilterAddr common.Address
 }
 
 // DefaultConfig contains the default configurations for the transaction pool.
@@ -299,7 +297,7 @@ func New(config Config, chain BlockChain) *LegacyPool {
 		reorgDoneCh:     make(chan chan struct{}),
 		reorgShutdownCh: make(chan struct{}),
 		initDoneCh:      make(chan struct{}),
-		accessFilter:    txpool.NewAccessFilter(config.AccessFilterAddr),
+		accessFilter:    txpool.NewAccessFilter(chain.Config().ChainID),
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -346,6 +344,16 @@ func (pool *LegacyPool) Init(gasTip uint64, head *types.Header, reserver txpool.
 
 	// OP-Stack addition
 	pool.resetRollupCostFn(head.Time, statedb)
+
+	err = pool.accessFilter.RefreshCache(&txpool.CallContext{
+		Statedb:      statedb,
+		Header:       head,
+		ChainContext: pool.chain,
+		ChainConfig:  pool.chainconfig,
+	})
+	if err != nil {
+		log.Error("failed to RefreshCache", "err", err)
+	}
 
 	pool.wg.Add(1)
 	go pool.scheduleReorgLoop()
@@ -1520,14 +1528,14 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
 
-	err = pool.accessFilter.RefreshCacheIfExpire(&txpool.CallContext{
+	err = pool.accessFilter.RefreshCache(&txpool.CallContext{
 		Statedb:      statedb,
 		Header:       newHead,
 		ChainContext: pool.chain,
 		ChainConfig:  pool.chainconfig,
 	})
 	if err != nil {
-		log.Error("failed to RefreshCacheIfExpire", "err", err)
+		log.Error("failed to RefreshCache", "err", err)
 	}
 
 	// OP-Stack addition

@@ -26,16 +26,34 @@ type CallContext struct {
 	ChainConfig  *params.ChainConfig
 }
 
+var (
+	defaultAddress = "0x57879E3219E50AA1309A0bF94F5e9c40EdF71745"
+	testnetAddress = "0x57879E3219E50AA1309A0bF94F5e9c40EdF71745"
+	devnetAddress  = "0x57879E3219E50AA1309A0bF94F5e9c40EdF71745"
+	mainnetAddress = "0x"
+)
+
+var chainIDMap = map[*big.Int]string{
+	big.NewInt(86608): mainnetAddress,
+	big.NewInt(86606): testnetAddress,
+	big.NewInt(86608): defaultAddress,
+	big.NewInt(1337):  devnetAddress,
+}
+
 type AccessFilter struct {
 	contract         common.Address
 	filterAddressMap map[common.Address]bool
 	cacheExpireAt    *time.Time
 }
 
-func NewAccessFilter(contract common.Address) *AccessFilter {
-	log.Debug("NewAccessFilter ", contract.String())
+func NewAccessFilter(chainID *big.Int) *AccessFilter {
+	contract, ok := chainIDMap[chainID]
+	if !ok {
+		contract = defaultAddress
+	}
+	log.Info("NewAccessFilter ", contract)
 
-	return &AccessFilter{contract: contract, filterAddressMap: make(map[common.Address]bool)}
+	return &AccessFilter{contract: common.HexToAddress(contract), filterAddressMap: make(map[common.Address]bool)}
 }
 
 func (a *AccessFilter) IsFiltered(addr common.Address) bool {
@@ -46,13 +64,13 @@ func (a *AccessFilter) IsFiltered(addr common.Address) bool {
 func (a *AccessFilter) RefreshCacheIfExpire(ctx *CallContext) error {
 	now := time.Now()
 	if a.cacheExpireAt == nil || now.After(*a.cacheExpireAt) {
-		return a.refreshCache(ctx)
+		return a.RefreshCache(ctx)
 	}
 
 	return nil
 }
 
-func (a *AccessFilter) refreshCache(ctx *CallContext) error {
+func (a *AccessFilter) RefreshCache(ctx *CallContext) error {
 	const method = "GetAllFilteredAddresses"
 	result, err := contractReadAll(ctx, a.contract, method)
 	if err != nil {
@@ -72,7 +90,7 @@ func (a *AccessFilter) refreshCache(ctx *CallContext) error {
 		newAddressMap[address] = true
 	}
 
-	expireAt := time.Now().Add(5 * time.Minute)
+	expireAt := time.Now().Add(5 * time.Second)
 
 	a.filterAddressMap = newAddressMap
 	a.cacheExpireAt = &expireAt
