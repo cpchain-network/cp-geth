@@ -47,7 +47,7 @@ exec geth \
   --authrpc.addr="0.0.0.0" \
   --authrpc.port=$AUTHRPC_PORT \
   --authrpc.vhosts="*" \
-  --authrpc.jwtsecret=/config/jwt-secret.txt \
+  --authrpc.jwtsecret=/mnt/secrets-store/jwt-secret.txt \
   --metrics \
   --metrics.addr=0.0.0.0 \
   --metrics.port=$METRICS_PORT \
