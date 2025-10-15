@@ -48,6 +48,7 @@ type AccessFilter struct {
 func NewAccessFilter(chainID *big.Int) *AccessFilter {
 	contract, ok := chainIDMap[chainID]
 	if !ok {
+		log.Warn("Unknown chainID for access filter, use default address", "chainID", chainID)
 		contract = defaultAddress
 	}
 	log.Info("NewAccessFilter ", contract)
