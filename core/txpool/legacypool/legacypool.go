@@ -758,6 +758,16 @@ func (pool *LegacyPool) validateAuth(tx *types.Transaction) error {
 // pending promotion and execution. If the transaction is a replacement for an already
 // pending or queued one, it overwrites the previous transaction if its price is higher.
 func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
+
+	// If the transaction from to is filter, pre-set the error slot
+	if pool.accessFilter != nil {
+		err := pool.accessFiltered(tx)
+		if err != nil {
+			invalidTxMeter.Mark(1)
+			return false, core.ErrTxAccessFilteredOut
+		}
+	}
+
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
 	if pool.all.Get(hash) != nil {
@@ -1055,16 +1065,6 @@ func (pool *LegacyPool) Add(txs []*types.Transaction, sync bool) []error {
 			errs[i] = txpool.ErrAlreadyKnown
 			knownTxMeter.Mark(1)
 			continue
-		}
-
-		// If the transaction from to is filter, pre-set the error slot
-		if pool.accessFilter != nil {
-			err := pool.accessFiltered(tx)
-			if err != nil {
-				errs[i] = core.ErrTxAccessFilteredOut
-				invalidTxMeter.Mark(1)
-				continue
-			}
 		}
 
 		// Exclude transactions with basic errors, e.g invalid signatures and
