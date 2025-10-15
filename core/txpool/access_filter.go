@@ -34,10 +34,9 @@ var (
 )
 
 var chainIDMap = map[*big.Int]string{
-	big.NewInt(86608): mainnetAddress,
-	big.NewInt(86606): testnetAddress,
-	big.NewInt(86608): defaultAddress,
-	big.NewInt(1337):  devnetAddress,
+	big.NewInt(86608):   mainnetAddress,
+	big.NewInt(86606):   testnetAddress,
+	big.NewInt(7654321): devnetAddress,
 }
 
 type AccessFilter struct {
