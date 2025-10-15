@@ -33,10 +33,10 @@ var (
 	mainnetAddress = "0x"
 )
 
-var chainIDMap = map[*big.Int]string{
-	big.NewInt(86608):   mainnetAddress,
-	big.NewInt(86606):   testnetAddress,
-	big.NewInt(7654321): devnetAddress,
+var chainIDMap = map[int64]string{
+	86608:   mainnetAddress,
+	86606:   testnetAddress,
+	7654321: devnetAddress,
 }
 
 type AccessFilter struct {
@@ -46,7 +46,7 @@ type AccessFilter struct {
 }
 
 func NewAccessFilter(chainID *big.Int) *AccessFilter {
-	contract, ok := chainIDMap[chainID]
+	contract, ok := chainIDMap[chainID.Int64()]
 	if !ok {
 		log.Warn("Unknown chainID for access filter, use default address", "chainID", chainID)
 		contract = defaultAddress
