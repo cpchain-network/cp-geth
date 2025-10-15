@@ -20,7 +20,6 @@ package legacypool
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"math"
 	"math/big"
