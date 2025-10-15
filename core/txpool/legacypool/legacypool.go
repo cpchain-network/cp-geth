@@ -20,6 +20,7 @@ package legacypool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"math"
 	"math/big"
@@ -1016,6 +1017,30 @@ func (pool *LegacyPool) addRemoteSync(tx *types.Transaction) error {
 	return pool.Add([]*types.Transaction{tx}, true)[0]
 }
 
+func (pool *LegacyPool) accessFiltered(tx *types.Transaction) error {
+	// Check if the sender is in the blocked list
+	from, err := types.Sender(pool.signer, tx)
+	if err != nil {
+		return err
+	}
+	if blocked := pool.accessFilter.IsFiltered(from); blocked {
+		return errors.New("err access filtered")
+	}
+
+	fmt.Println("access filter from", from.String())
+
+	// Check if the recipient is in the blocked list
+	if tx.To() != nil {
+		fmt.Println("access filter to", tx.To().String())
+
+		if blocked := pool.accessFilter.IsFiltered(*tx.To()); blocked {
+			return errors.New("err accept access filtered")
+		}
+	}
+
+	return nil
+}
+
 // Add enqueues a batch of transactions into the pool if they are valid.
 //
 // Note, if sync is set the method will block until all internal maintenance
@@ -1036,8 +1061,9 @@ func (pool *LegacyPool) Add(txs []*types.Transaction, sync bool) []error {
 
 		// If the transaction from to is filter, pre-set the error slot
 		if pool.accessFilter != nil {
-			if pool.accessFilter.IsFiltered(tx.From()) || pool.accessFilter.IsFiltered(*tx.To()) {
-				errs[i] = core.ErrTxFilteredOut
+			err := pool.accessFiltered(tx)
+			if err != nil {
+				errs[i] = core.ErrTxAccessFilteredOut
 				invalidTxMeter.Mark(1)
 				continue
 			}

@@ -71,24 +71,22 @@ func (a *AccessFilter) RefreshCacheIfExpire(ctx *CallContext) error {
 }
 
 func (a *AccessFilter) RefreshCache(ctx *CallContext) error {
-	const method = "GetAllFilteredAddresses"
-	fmt.Println(a.contract.String())
+	const method = "getAllFilteredAddresses"
 	result, err := contractReadAll(ctx, a.contract, method)
 	if err != nil {
-		log.Error("GetAllFilteredAddresses contractReadAll failed", "err", err)
+		log.Error("getAllFilteredAddresses contractReadAll failed", "err", err)
 		return err
 	}
 
 	newAddressMap := make(map[common.Address]bool)
 
-	for _, v := range result {
-		address, ok := v.(common.Address)
-		if !ok {
-			log.Error("GetAllFilteredAddresses result invalid address")
-			continue
-		}
+	filterAddresses := make([]common.Address, 0)
+	if len(result) > 0 {
+		filterAddresses, _ = result[0].([]common.Address)
+	}
 
-		newAddressMap[address] = true
+	for _, v := range filterAddresses {
+		newAddressMap[v] = true
 	}
 
 	expireAt := time.Now().Add(5 * time.Second)
@@ -135,7 +133,7 @@ func CallContract(ctx *CallContext, to *common.Address, data []byte) (ret []byte
 
 // CallContract executes transaction sent to system contracts.
 func callContractWithValue(ctx *CallContext, from common.Address, to *common.Address, data []byte, value *big.Int) (ret []byte, err error) {
-	blockCtx := core.NewEVMBlockContext(ctx.Header, ctx.ChainContext, nil, nil, nil)
+	blockCtx := core.NewEVMBlockContext(ctx.Header, ctx.ChainContext, nil, ctx.ChainConfig, nil)
 	evm := vm.NewEVM(blockCtx, ctx.Statedb, ctx.ChainConfig, vm.Config{})
 
 	value256, _ := uint256.FromBig(value)
