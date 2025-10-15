@@ -27,9 +27,9 @@ type CallContext struct {
 }
 
 var (
-	defaultAddress = "0x57879E3219E50AA1309A0bF94F5e9c40EdF71745"
-	testnetAddress = "0x57879E3219E50AA1309A0bF94F5e9c40EdF71745"
-	devnetAddress  = "0x57879E3219E50AA1309A0bF94F5e9c40EdF71745"
+	defaultAddress = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
+	testnetAddress = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
+	devnetAddress  = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
 	mainnetAddress = "0x"
 )
 
@@ -72,6 +72,7 @@ func (a *AccessFilter) RefreshCacheIfExpire(ctx *CallContext) error {
 
 func (a *AccessFilter) RefreshCache(ctx *CallContext) error {
 	const method = "GetAllFilteredAddresses"
+	fmt.Println(a.contract.String())
 	result, err := contractReadAll(ctx, a.contract, method)
 	if err != nil {
 		log.Error("GetAllFilteredAddresses contractReadAll failed", "err", err)
@@ -95,18 +96,6 @@ func (a *AccessFilter) RefreshCache(ctx *CallContext) error {
 	a.filterAddressMap = newAddressMap
 	a.cacheExpireAt = &expireAt
 	return nil
-}
-
-// contractRead perform contract read
-func contractRead(ctx *CallContext, contract common.Address, method string, args ...interface{}) (interface{}, interface{}, error) {
-	ret, err := contractReadAll(ctx, contract, method, args...)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(ret) != 2 {
-		return nil, nil, errors.New(method + ": invalid result length")
-	}
-	return ret[0], ret[1], nil
 }
 
 // contractReadAll perform contract Read and return all results
