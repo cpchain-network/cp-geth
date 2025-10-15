@@ -1024,6 +1024,7 @@ func (pool *LegacyPool) accessFiltered(tx *types.Transaction) error {
 		return err
 	}
 	if blocked := pool.accessFilter.IsFiltered(from); blocked {
+		log.Warn("access filter blocked sender", "from", from.String(), "tx", tx.Hash().String())
 		return errors.New("err access filtered")
 	}
 
@@ -1031,6 +1032,7 @@ func (pool *LegacyPool) accessFiltered(tx *types.Transaction) error {
 	if tx.To() != nil {
 
 		if blocked := pool.accessFilter.IsFiltered(*tx.To()); blocked {
+			log.Warn("access filter blocked recipient", "to", tx.To().String(), "tx", tx.Hash().String())
 			return errors.New("err accept access filtered")
 		}
 	}
