@@ -1027,11 +1027,8 @@ func (pool *LegacyPool) accessFiltered(tx *types.Transaction) error {
 		return errors.New("err access filtered")
 	}
 
-	fmt.Println("access filter from", from.String())
-
 	// Check if the recipient is in the blocked list
 	if tx.To() != nil {
-		fmt.Println("access filter to", tx.To().String())
 
 		if blocked := pool.accessFilter.IsFiltered(*tx.To()); blocked {
 			return errors.New("err accept access filtered")
