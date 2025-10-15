@@ -52,5 +52,6 @@ exec geth \
   --metrics.addr=0.0.0.0 \
   --metrics.port=$METRICS_PORT \
   --gcmode=archive \
+  --rollup.sequencerhttp=http://cp-geth:8545 \
   "$@"
 
