@@ -29,7 +29,7 @@ type CallContext struct {
 var (
 	defaultAddress = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
 	testnetAddress = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
-	devnetAddress  = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
+	devnetAddress  = "0x5b46e73A1b28eECFE6836438D31903DF127710bf"
 	mainnetAddress = "0x"
 )
 
