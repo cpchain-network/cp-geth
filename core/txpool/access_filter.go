@@ -27,10 +27,10 @@ type CallContext struct {
 }
 
 var (
-	defaultAddress = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
-	testnetAddress = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
-	devnetAddress  = "0x39Af025d0F1982fb547DC550549162Edd7701E36"
-	mainnetAddress = "0x"
+	defaultAddress = "0x1daD69C3826D98b95697f62D8aCC6f8E4FbDFca6"
+	testnetAddress = "0x1daD69C3826D98b95697f62D8aCC6f8E4FbDFca6"
+	devnetAddress  = "0x1daD69C3826D98b95697f62D8aCC6f8E4FbDFca6"
+	mainnetAddress = "0x1daD69C3826D98b95697f62D8aCC6f8E4FbDFca6"
 )
 
 var chainIDMap = map[int64]string{
