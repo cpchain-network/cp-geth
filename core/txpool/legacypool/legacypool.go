@@ -123,6 +123,7 @@ var (
 // BlockChain defines the minimal set of methods needed to back a tx pool with
 // a chain. Exists to allow mocking the live chain out of tests.
 type BlockChain interface {
+	core.ChainContext
 	// Config retrieves the chain's fork configuration.
 	Config() *params.ChainConfig
 
@@ -267,6 +268,7 @@ type LegacyPool struct {
 	ingressFilters []txpool.IngressFilter // Filters to apply to incoming transactions
 	filterCtx      context.Context        // Filters may use this context with external resources
 	filterCancel   context.CancelFunc     // Cancel function for the filter context
+	accessFilter   *txpool.AccessFilter   // address filter contract wrapper
 }
 
 type txpoolResetRequest struct {
@@ -295,6 +297,7 @@ func New(config Config, chain BlockChain) *LegacyPool {
 		reorgDoneCh:     make(chan chan struct{}),
 		reorgShutdownCh: make(chan struct{}),
 		initDoneCh:      make(chan struct{}),
+		accessFilter:    txpool.NewAccessFilter(chain.Config().ChainID),
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -341,6 +344,16 @@ func (pool *LegacyPool) Init(gasTip uint64, head *types.Header, reserver txpool.
 
 	// OP-Stack addition
 	pool.resetRollupCostFn(head.Time, statedb)
+
+	err = pool.accessFilter.RefreshCache(&txpool.CallContext{
+		Statedb:      statedb,
+		Header:       head,
+		ChainContext: pool.chain,
+		ChainConfig:  pool.chainconfig,
+	})
+	if err != nil {
+		log.Error("failed to RefreshCache", "err", err)
+	}
 
 	pool.wg.Add(1)
 	go pool.scheduleReorgLoop()
@@ -745,6 +758,16 @@ func (pool *LegacyPool) validateAuth(tx *types.Transaction) error {
 // pending promotion and execution. If the transaction is a replacement for an already
 // pending or queued one, it overwrites the previous transaction if its price is higher.
 func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
+
+	// If the transaction from to is filter, pre-set the error slot
+	if pool.accessFilter != nil {
+		err := pool.accessFiltered(tx)
+		if err != nil {
+			invalidTxMeter.Mark(1)
+			return false, core.ErrTxAccessFilteredOut
+		}
+	}
+
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
 	if pool.all.Get(hash) != nil {
@@ -1003,6 +1026,29 @@ func (pool *LegacyPool) addRemoteSync(tx *types.Transaction) error {
 	return pool.Add([]*types.Transaction{tx}, true)[0]
 }
 
+func (pool *LegacyPool) accessFiltered(tx *types.Transaction) error {
+	// Check if the sender is in the blocked list
+	from, err := types.Sender(pool.signer, tx)
+	if err != nil {
+		return err
+	}
+	if blocked := pool.accessFilter.IsFiltered(from); blocked {
+		log.Warn("access filter blocked sender", "from", from.String(), "tx", tx.Hash().String())
+		return errors.New("err access filtered")
+	}
+
+	// Check if the recipient is in the blocked list
+	if tx.To() != nil {
+
+		if blocked := pool.accessFilter.IsFiltered(*tx.To()); blocked {
+			log.Warn("access filter blocked recipient", "to", tx.To().String(), "tx", tx.Hash().String())
+			return errors.New("err accept access filtered")
+		}
+	}
+
+	return nil
+}
+
 // Add enqueues a batch of transactions into the pool if they are valid.
 //
 // Note, if sync is set the method will block until all internal maintenance
@@ -1020,6 +1066,7 @@ func (pool *LegacyPool) Add(txs []*types.Transaction, sync bool) []error {
 			knownTxMeter.Mark(1)
 			continue
 		}
+
 		// Exclude transactions with basic errors, e.g invalid signatures and
 		// insufficient intrinsic gas as soon as possible and cache senders
 		// in transactions before obtaining lock
@@ -1504,6 +1551,16 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
+
+	err = pool.accessFilter.RefreshCache(&txpool.CallContext{
+		Statedb:      statedb,
+		Header:       newHead,
+		ChainContext: pool.chain,
+		ChainConfig:  pool.chainconfig,
+	})
+	if err != nil {
+		log.Error("failed to RefreshCache", "err", err)
+	}
 
 	// OP-Stack addition
 	pool.resetRollupCostFn(newHead.Time, statedb)
