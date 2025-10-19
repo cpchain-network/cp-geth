@@ -72,11 +72,15 @@ func (a *AccessFilter) RefreshCacheIfExpire(ctx *CallContext) error {
 
 func (a *AccessFilter) RefreshCache(ctx *CallContext) error {
 	const method = "getAllFilteredAddresses"
+
+	log.Info("start time to refresh access filter cache", "contract", time.Now().UnixMilli())
 	result, err := contractReadAll(ctx, a.contract, method)
 	if err != nil {
 		log.Error("getAllFilteredAddresses contractReadAll failed", "err", err)
 		return err
 	}
+
+	log.Info("end time to refresh access filter cache", "contract", time.Now().UnixMilli())
 
 	newAddressMap := make(map[common.Address]bool)
 
