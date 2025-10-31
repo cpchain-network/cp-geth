@@ -41,6 +41,16 @@ const (
 	baseSepoliaChainID = 84532
 )
 
+var (
+	cpMainnetChainID    = big.NewInt(86608)
+	cpTestnetChainID    = big.NewInt(86606)
+	cpDevnetChainID     = big.NewInt(7654321)
+	cpMainnetFirstBlock = big.NewInt(math.MaxInt64) // TODO replace me later
+	cpTestnetFirstBlock = big.NewInt(math.MaxInt64) // TODO replace me later
+	cpDevnetFirstBlock  = big.NewInt(math.MaxInt64) // TODO replace me later
+
+)
+
 func newUint64(val uint64) *uint64 { return &val }
 
 var (
@@ -850,6 +860,18 @@ func (c *ChainConfig) IsOptimismJovian(time uint64) bool {
 // IsOptimismPreBedrock returns true iff this is an optimism node & bedrock is not yet active
 func (c *ChainConfig) IsOptimismPreBedrock(num *big.Int) bool {
 	return c.IsOptimism() && !c.IsBedrock(num)
+}
+
+func (c *ChainConfig) IsCpFirst(num *big.Int) bool {
+	if c.ChainID.Cmp(cpMainnetChainID) == 0 {
+		return isBlockForked(cpMainnetFirstBlock, num)
+	} else if c.ChainID.Cmp(cpTestnetChainID) == 0 {
+		return isBlockForked(cpTestnetFirstBlock, num)
+	} else if c.ChainID.Cmp(cpDevnetChainID) == 0 {
+		return isBlockForked(cpDevnetFirstBlock, num)
+	} else {
+		return true
+	}
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
